@@ -20,7 +20,6 @@ import argparse
 import json
 import os
 import random
-import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -32,9 +31,7 @@ sys.path.insert(0, str(REPO / "explore" / "pilot"))
 os.environ["LEST_DATA_DIR"] = str(REPO / "data" / "experimental")
 
 from pilot import (  # noqa: E402
-    BIG_CTX,
     EMB_MODEL,
-    GRANULARITY_FIX,
     OUTLINE_SCHEMA,
     P2B,
     PILOT,
@@ -50,11 +47,9 @@ from pilot import (  # noqa: E402
     production_db,
     render_pages,
 )
-from pilot import (
-    TAGS_SCHEMA as EXP_TAGS_SCHEMA,  # noqa: E402
-)
+from pilot import TAGS_SCHEMA as EXP_TAGS_SCHEMA  # noqa: E402
 
-from lest.chunkers.paragraph import MAX_CHARS, MIN_CHARS, ParagraphChunker  # noqa: E402
+from lest.chunkers.paragraph import MIN_CHARS, ParagraphChunker  # noqa: E402
 from lest.sources.base import fingerprint  # noqa: E402
 from lest.store import Store, db_path_for  # noqa: E402
 

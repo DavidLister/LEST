@@ -28,6 +28,7 @@
           packages = [
             (pkgs.python3.withPackages (ps: runtimeDeps ps ++ [ ps.pytest ]))
             pkgs.ruff
+            pkgs.ocrmypdf  # OCR sidecars for scanned PDFs (lest ocr)
           ];
         };
       });

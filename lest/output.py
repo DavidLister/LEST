@@ -15,14 +15,21 @@ def format_tsv(result: SearchResult) -> str:
 
 
 def format_json(result: SearchResult) -> str:
-    return json.dumps(
-        {
-            "score": round(result.score, 6),
-            "title": result.title,
-            "key": result.key,
-            "paths": result.paths,
-            "meta": result.meta,
-            "best_chunk": result.best_chunk,
-        },
-        ensure_ascii=False,
-    )
+    payload = {
+        "score": round(result.score, 6),
+        "title": result.title,
+        "key": result.key,
+        "paths": result.paths,
+        "meta": result.meta,
+        "best_chunk": result.best_chunk,
+        "best_chunk_kind": result.kind,
+    }
+    if result.doc_type:
+        payload["doc_type"] = result.doc_type
+    if result.tags:
+        payload["tags"] = result.tags
+    if result.authors:
+        payload["authors"] = result.authors
+    if result.duplicate_keys:
+        payload["duplicate_keys"] = result.duplicate_keys
+    return json.dumps(payload, ensure_ascii=False)

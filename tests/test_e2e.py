@@ -24,6 +24,7 @@ def corpus(tmp_path, data_dir, fake_embedder):
 def index(directory, **kwargs):
     kwargs.setdefault("model", "fake-model")
     kwargs.setdefault("embedder_name", "fake")
+    kwargs.setdefault("chunker_name", "paragraph")  # llm default needs a live endpoint
     return index_directory(directory, **kwargs)
 
 
