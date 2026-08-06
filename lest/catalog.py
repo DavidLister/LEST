@@ -32,10 +32,14 @@ from .store import data_dir
 
 KINDS = ("tag", "author", "doctype")
 
-# Similarity bands for embedded kinds (cosine). Initial values chosen from the
-# pilot's freeform-tag dump calibration; expected to be tuned as nightly runs
-# accumulate.
-SIM_AUTO = 0.92
+# Similarity bands for embedded kinds (cosine), calibrated against the pilot's
+# 2200-tag freeform dump (explore/calibrate_tags.py). Auto-mapping is reserved
+# for near-certain spelling/phrasing variants (piezoelectric~piezoelectricity
+# 0.988, photovoltaic~photovoltaics 0.983): even 0.95 still auto-merged
+# semantically distinct ternary compounds (aluminum gallium nitride ->
+# gallium nitride, 0.959). Everything in the gray band goes through gemma
+# adjudication — one cheap call per NEW tag, not per document.
+SIM_AUTO = 0.97
 SIM_GRAY = 0.80
 
 # Author string-similarity bands (difflib ratio over folded full names).
