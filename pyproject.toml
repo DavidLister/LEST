@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lest"
+version = "0.1.0"
+description = "Local Embedding Search Test — semantic search over a directory using locally hosted embedding models"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf>=1.24",
+    "sqlite-vec>=0.1.6",
+    "typer>=0.12",
+    "ollama>=0.4",
+    "numpy>=1.26",
+]
+
+[project.urls]
+Repository = "https://github.com/DavidLister/LEST"
+
+[project.scripts]
+lest = "lest.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lest*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
