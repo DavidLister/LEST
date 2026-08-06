@@ -158,12 +158,26 @@ def search(
     dedup: Annotated[
         bool, typer.Option("--dedup/--no-dedup", help="Collapse duplicate library entries.")
     ] = True,
+    smart: Annotated[
+        bool,
+        typer.Option(
+            "--smart",
+            help="LLM query understanding: extract weighted author/tag/type/year "
+                 "facets from the query, boost matches (weight 1.0 = filter), and "
+                 "rerank the shortlist. Adds a few seconds; default is fast mode.",
+        ),
+    ] = False,
+    gpu_mode: Annotated[
+        GpuMode | None,
+        typer.Option(help="Where --smart's LLM runs: both -> :11435, a2000 -> :11434."),
+    ] = None,
     db: Annotated[Path | None, typer.Option(help=DB_HELP)] = None,
     json_output: Annotated[bool, typer.Option("--json", help="JSON-lines output.")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Search DIRECTORY's index; prints TSV (score, title, paths) to stdout."""
     _setup_logging(verbose)
+    _apply_gpu_mode(gpu_mode)
     from .output import format_json, format_tsv
     from .query import search_directory
 
@@ -178,6 +192,7 @@ def search(
         doc_type=doc_type,
         hybrid=hybrid,
         dedup=dedup,
+        smart=smart,
     )
     for result in results:
         print(format_json(result) if json_output else format_tsv(result))

@@ -257,6 +257,84 @@ TITLE: {title}
 BEGINNING OF THE DOCUMENT:
 {excerpt}"""
 
+QUERY_PARSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "semantic_query": {"type": "string"},
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "weight": {"type": "number"},
+                },
+                "required": ["name", "weight"],
+            },
+        },
+        "authors": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "weight": {"type": "number"},
+                },
+                "required": ["name", "weight"],
+            },
+        },
+        "doc_types": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "weight": {"type": "number"},
+                },
+                "required": ["name", "weight"],
+            },
+        },
+        "year_from": {"type": "integer"},
+        "year_to": {"type": "integer"},
+    },
+    "required": ["semantic_query", "tags", "authors", "doc_types",
+                 "year_from", "year_to"],
+}
+
+QUERY_PARSE_PROMPT = """Parse this library search query into a semantic content
+query plus structured facets.
+
+- semantic_query: the content the user is looking for, with author names,
+  document-type words, and year constraints removed (keep ALL topic words).
+- tags: topic/subject/material/method facets the user names, if clearly meant
+  as restrictions rather than the content itself (usually empty).
+- authors: any person names the query attributes the work to.
+- doc_types: what kind of document is wanted (e.g. review, thesis, datasheet)
+  — only when the user names one.
+- year_from / year_to: publication-year bounds, 0 when unconstrained.
+
+Every facet has a weight from 0.0 to 1.0 for how strongly the user restricts:
+1.0 = explicit hard restriction ("only papers by Smith", "reviews only");
+0.6 = stated matter-of-factly ("the Smith paper about...");
+0.3 = uncertain or hedged ("maybe by Smith", "I think it was a review").
+
+QUERY: {query}"""
+
+RERANK_PROMPT = """Rank these search results by how well they answer the query.
+Consider what the user is actually looking for, not just keyword overlap.
+Return ALL result numbers, most relevant first.
+
+QUERY: {query}
+
+RESULTS:
+{results}"""
+
+RERANK_SCHEMA = {
+    "type": "object",
+    "properties": {"ranking": {"type": "array", "items": {"type": "integer"}}},
+    "required": ["ranking"],
+}
+
 ADJUDICATE_PROMPT = """In a controlled vocabulary of {kind} labels, is the proposed
 new label the same concept as one of these existing labels, or genuinely new?
 

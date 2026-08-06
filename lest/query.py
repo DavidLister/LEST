@@ -98,13 +98,24 @@ def search_directory(
     doc_type: str | None = None,
     hybrid: bool = True,
     dedup: bool = True,
+    smart: bool = False,
 ) -> list[SearchResult]:
     aggregate = parse_agg(agg_spec)
+    parsed = client = None
+    search_text = query
+    if smart:
+        from .llm import LlmClient
+        from .smart import parse_query
+
+        client = LlmClient()
+        client.ping()
+        parsed = parse_query(client, query)
+        search_text = parsed.semantic_query
     store = _open_store(directory, db_base)
     try:
         model = store.get_meta("model")
         embedder = get_embedder(store.get_meta("embedder") or "ollama", model)
-        query_vector = embedder.embed_query(query)
+        query_vector = embedder.embed_query(search_text)
 
         filtering = bool(tags or authors or doc_type)
         allowed = None
@@ -119,7 +130,11 @@ def search_directory(
             k = max(k, FILTER_OVERFETCH)
         vec_hits = store.knn(query_vector, k=k)
         use_hybrid = hybrid and store.has_fts
-        hits = _fuse(vec_hits, store.fts_search(query, k=k)) if use_hybrid else vec_hits
+        hits = (
+            _fuse(vec_hits, store.fts_search(search_text, k=k))
+            if use_hybrid
+            else vec_hits
+        )
 
         by_document: dict[int, list[ChunkHit]] = defaultdict(list)
         for hit in hits:
@@ -145,9 +160,18 @@ def search_directory(
                     authors=store.document_authors(document_id),
                 )
             )
+        if parsed is not None:
+            from .smart import facet_multiplier
+
+            for result in results:
+                result.score *= facet_multiplier(result, parsed)
         results.sort(key=lambda r: r.score, reverse=True)
         if dedup:
             results = _dedup(results)
+        if parsed is not None:
+            from .smart import RERANK_TOP, rerank
+
+            results = rerank(client, query, results[: max(n, RERANK_TOP)])
         return results[:n]
     finally:
         store.close()
