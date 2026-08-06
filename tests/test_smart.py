@@ -86,6 +86,17 @@ def test_parse_query_resolves_through_catalog(data_dir):
     assert author_facet.weight == 1.0
 
 
+def test_parse_drops_generic_doctype_facets(data_dir):
+    fake = FakeClient([{
+        "semantic_query": "water ice on the moon",
+        "tags": [], "authors": [{"name": "Li", "weight": 0.6}],
+        "doc_types": [{"name": "Papers", "weight": 1.0}],  # e4b-qat junk facet
+        "year_from": 0, "year_to": 0,
+    }])
+    parsed = parse_query(fake, "papers by Li about water ice on the moon")
+    assert [f.kind for f in parsed.facets] == ["author"]
+
+
 def test_parse_failure_degrades_to_plain(data_dir):
     parsed = parse_query(FakeClient([None]), "some query")
     assert parsed.semantic_query == "some query"

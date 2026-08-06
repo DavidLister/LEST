@@ -39,19 +39,33 @@ def llm_host() -> str:
     return "http://localhost:11434" if mode == "a2000" else "http://localhost:11435"
 
 
+SMART_MODEL = "gemma4:e2b-it-qat"  # ~1.5GB VRAM: co-resident with the embedders
+
+
 def smart_client() -> "LlmClient":
     """Client for the search-time smart stages (parse + rerank).
 
-    These are short-context judgment calls, so they can run on a small model
-    resident on the A2000 beside the embedders (LEST_SMART_MODEL /
-    LEST_SMART_HOST) — keeping smart search responsive while the big card
-    indexes or drives the GUI. Defaults to the main model/host until
-    overridden."""
-    model = os.environ.get("LEST_SMART_MODEL")
-    host = os.environ.get("LEST_SMART_HOST") or (
-        "http://localhost:11434" if model else None
-    )
-    return LlmClient(host=host, model=model)
+    These are short-context judgment calls, so they default to a small qat
+    model resident on the A2000 beside the embedders — smart search stays
+    a-few-seconds fast while the big card indexes or drives the GUI
+    (benchmark: explore/smart_bench.py). Override with LEST_SMART_MODEL /
+    LEST_SMART_HOST; falls back to the main model when the small one is not
+    pulled."""
+    model = os.environ.get("LEST_SMART_MODEL", SMART_MODEL)
+    host = os.environ.get("LEST_SMART_HOST", "http://localhost:11434")
+    client = LlmClient(host=host, model=model)
+    try:
+        client.ping()
+        return client
+    except EnvironmentError_:
+        fallback = LlmClient()
+        log.warning(
+            "smart model %s not available at %s — using %s at %s "
+            "(`ollama pull %s` enables the fast path)",
+            model, host, fallback.model, fallback.host, model,
+        )
+        fallback.ping()
+        return fallback
 
 
 class LlmClient:

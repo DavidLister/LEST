@@ -107,8 +107,7 @@ def search_directory(
         from .llm import smart_client
         from .smart import parse_query
 
-        client = smart_client()
-        client.ping()
+        client = smart_client()  # pings; falls back to the main model
         parsed = parse_query(client, query)
         search_text = parsed.semantic_query
     store = _open_store(directory, db_base)

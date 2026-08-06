@@ -13,7 +13,7 @@ equally — i.e. it is neutral, never destructive.
 import logging
 from dataclasses import dataclass, field
 
-from .catalog import Catalog, fold
+from .catalog import GENERIC_TYPES, Catalog, fold
 from .llm import (
     QUERY_PARSE_PROMPT,
     QUERY_PARSE_SCHEMA,
@@ -27,6 +27,14 @@ log = logging.getLogger(__name__)
 
 RERANK_TOP = 20
 PREVIEW_CHARS = 400
+
+# Words like "papers by X" are how people say "documents", not a doc-type
+# restriction; smaller parse models emit them as doc_types facets, and an
+# unmatchable hard facet would zero every score.
+GENERIC_QUERY_DOCTYPES = GENERIC_TYPES | {
+    "paper", "papers", "article", "articles", "publication", "publications",
+    "work", "works", "study", "studies",
+}
 
 
 @dataclass
@@ -84,7 +92,7 @@ def parse_query(client: LlmClient, query: str) -> ParsedQuery:
         for entry in raw.get("doc_types", []):
             weight = _clamp(entry.get("weight"))
             name = entry.get("name", "").strip()
-            if name and weight > 0:
+            if name and weight > 0 and fold(name) not in GENERIC_QUERY_DOCTYPES:
                 terms = catalog.lookup_term("doctype", name) or {fold(name)}
                 parsed.facets.append(Facet(terms, weight, "doctype"))
         return parsed
