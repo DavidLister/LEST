@@ -104,10 +104,10 @@ def search_directory(
     parsed = client = None
     search_text = query
     if smart:
-        from .llm import LlmClient
+        from .llm import smart_client
         from .smart import parse_query
 
-        client = LlmClient()
+        client = smart_client()
         client.ping()
         parsed = parse_query(client, query)
         search_text = parsed.semantic_query

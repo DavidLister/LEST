@@ -167,6 +167,12 @@ def search(
                  "rerank the shortlist. Adds a few seconds; default is fast mode.",
         ),
     ] = False,
+    smart_model: Annotated[
+        str | None,
+        typer.Option(help="Model for --smart's parse+rerank (env LEST_SMART_MODEL); "
+                          "a small model here runs on the A2000 beside the embedders "
+                          "so smart search stays fast while the big GPU is busy."),
+    ] = None,
     gpu_mode: Annotated[
         GpuMode | None,
         typer.Option(help="Where --smart's LLM runs: both -> :11435, a2000 -> :11434."),
@@ -178,6 +184,10 @@ def search(
     """Search DIRECTORY's index; prints TSV (score, title, paths) to stdout."""
     _setup_logging(verbose)
     _apply_gpu_mode(gpu_mode)
+    if smart_model is not None:
+        import os
+
+        os.environ["LEST_SMART_MODEL"] = smart_model
     from .output import format_json, format_tsv
     from .query import search_directory
 

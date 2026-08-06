@@ -138,6 +138,7 @@ def rerank(client: LlmClient, query: str, results: list) -> list:
     raw = client.call(
         RERANK_PROMPT.format(query=query, results=previews),
         RERANK_SCHEMA,
+        num_ctx=SMALL_CTX,  # ~3k tokens of previews; never the 64k default
         num_predict=256,
     )
     ranking = [i for i in (raw or {}).get("ranking", []) if 0 <= i < len(head)]

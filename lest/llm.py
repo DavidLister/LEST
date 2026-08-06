@@ -39,6 +39,21 @@ def llm_host() -> str:
     return "http://localhost:11434" if mode == "a2000" else "http://localhost:11435"
 
 
+def smart_client() -> "LlmClient":
+    """Client for the search-time smart stages (parse + rerank).
+
+    These are short-context judgment calls, so they can run on a small model
+    resident on the A2000 beside the embedders (LEST_SMART_MODEL /
+    LEST_SMART_HOST) — keeping smart search responsive while the big card
+    indexes or drives the GUI. Defaults to the main model/host until
+    overridden."""
+    model = os.environ.get("LEST_SMART_MODEL")
+    host = os.environ.get("LEST_SMART_HOST") or (
+        "http://localhost:11434" if model else None
+    )
+    return LlmClient(host=host, model=model)
+
+
 class LlmClient:
     """Structured-output calls to gemma4 with its quirks baked in:
     think=False (thinking otherwise eats the output budget), explicit num_ctx,
