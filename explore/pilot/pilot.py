@@ -332,7 +332,7 @@ def embedder():
 
 
 def cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
     na = sum(x * x for x in a) ** 0.5
     nb = sum(y * y for y in b) ** 0.5
     return dot / max(na * nb, 1e-12)
@@ -369,7 +369,7 @@ def stage_select():
         except Exception:
             return None
 
-    short, medium, long_, scanned = [], [], [], []
+    short, medium, long_ = [], [], []
     for key, title, path in rows:
         if not Path(path).exists():
             continue
@@ -570,7 +570,7 @@ def stage_e4(done):
         texts = [views[v] for v in VIEWS]
         abstract = abstract_for(key)
         vecs = emb.embed(texts + ([abstract] if abstract else []))
-        view_vecs[key] = dict(zip(VIEWS, vecs[:4]))
+        view_vecs[key] = dict(zip(VIEWS, vecs[:4], strict=True))
         matrix = {}
         labels = VIEWS + (["abstract"] if abstract else [])
         for i, a in enumerate(labels):
