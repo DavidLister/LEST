@@ -219,3 +219,6 @@ __marimo__/
 
 # LEST databases (personal library content — never commit)
 data/
+
+# temporary session handoff notes
+HANDOFF.md
