@@ -1,0 +1,9 @@
+Telescopes gather light from distant stars and galaxies. A larger telescope
+aperture collects more photons, letting astronomers observe fainter nebulae.
+
+The parallax method measures stellar distances by observing how a nearby star
+appears to shift against background galaxies as the Earth orbits the Sun.
+
+Radio telescopes detect emissions from pulsars and quasars, objects invisible
+to optical astronomy. Interferometry combines many antennas into one giant
+virtual telescope with extraordinary angular resolution.

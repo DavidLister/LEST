@@ -1,0 +1,8 @@
+A sailboat tacks upwind by zigzagging across the wind, since no vessel can sail
+directly into it. The keel resists sideways drift while sails generate lift.
+
+Reefing reduces sail area in strong wind. A prudent skipper reefs the mainsail
+early, keeping the boat balanced and the rudder responsive in rising seas.
+
+Navigation by dead reckoning tracks a vessel's position from its known speed,
+heading, and elapsed time, corrected for current and leeway.

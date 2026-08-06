@@ -21,7 +21,8 @@ def _topk(scores: list[float], k: int) -> float:
 
 
 def _softmax(scores: list[float], temperature: float) -> float:
-    weights = [math.exp(s / temperature) for s in scores]
+    peak = max(scores)  # stabilize: exp of large s/T overflows
+    weights = [math.exp((s - peak) / temperature) for s in scores]
     total = sum(weights)
     return sum(s * w for s, w in zip(scores, weights, strict=True)) / total
 
