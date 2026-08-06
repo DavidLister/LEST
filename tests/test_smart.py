@@ -48,6 +48,14 @@ def test_facets_compound():
     assert facet_multiplier(neither, parsed) == pytest.approx(0.25)
 
 
+def test_author_falls_back_to_creators_meta():
+    parsed = ParsedQuery("q", facets=[Facet({"Neugebauer, Jörg"}, 1.0, "author")])
+    legacy = result(authors=[], meta={"creators": "Neugebauer, Jörg; Van de Walle, Chris"})
+    assert facet_multiplier(legacy, parsed) == 1.0
+    other = result(authors=[], meta={"creators": "Smith, John"})
+    assert facet_multiplier(other, parsed) == 0.0
+
+
 def test_year_range_nudges_not_filters():
     parsed = ParsedQuery("q", year_from=2000, year_to=2005)
     assert facet_multiplier(result(meta={"year": "2003"}), parsed) == 1.0

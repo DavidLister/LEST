@@ -100,6 +100,14 @@ def facet_multiplier(result, parsed: ParsedQuery) -> float:
             matched = bool(facet.terms & set(result.tags))
         elif facet.kind == "author":
             matched = bool(facet.terms & set(result.authors))
+            if not matched and not result.authors:
+                # docs without ingested authors (v1 baseline): surname
+                # containment against the raw creators metadata
+                creators = fold(result.meta.get("creators", ""))
+                matched = creators != "" and any(
+                    fold(term).split(",")[0].strip() in creators
+                    for term in facet.terms
+                )
         else:
             matched = result.doc_type in facet.terms
         if not matched:
