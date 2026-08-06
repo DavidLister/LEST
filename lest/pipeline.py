@@ -63,10 +63,12 @@ def index_directory(
     embedder_name: str | None = None,
     db_base: Path | None = None,
     stop_at: float | None = None,
+    limit: int | None = None,
 ) -> IndexStats:
     """Index (incrementally) DIRECTORY. `db_base` overrides the DB location
-    (temporary --db A/B flag); `stop_at` is a unix timestamp after which no
-    new file is started (nightly time-budget) — progress so far is kept."""
+    (temporary --db A/B flag); `stop_at` is a unix timestamp and `limit` a
+    files-indexed cap — after either, no new file is started (nightly budget /
+    smoke tests); progress so far is kept and the next run resumes."""
     directory = directory.expanduser()
     if not directory.is_dir():
         raise LestError(f"not a directory: {directory}")
@@ -112,7 +114,9 @@ def index_directory(
                 if fp == attachment.fingerprint and status != "llm_pending":
                     stats.files_unchanged += 1
                     continue
-                if stop_at is not None and time.time() >= stop_at:
+                if (stop_at is not None and time.time() >= stop_at) or (
+                    limit is not None and stats.files_indexed >= limit
+                ):
                     stopped = True
                     break
                 status, chunks, doc_updates = _process_file(
@@ -158,7 +162,7 @@ def index_directory(
             if removed_docs:
                 log.info("pruned %d empty documents", removed_docs)
         else:
-            log.info("time budget reached — stopping; next run resumes here")
+            log.info("budget reached — stopping; next run resumes here")
 
         store.stamp_last_indexed()
         return stats

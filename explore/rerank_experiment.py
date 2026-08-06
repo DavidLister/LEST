@@ -84,7 +84,7 @@ def main():
     for query, marker in QUERIES:
         print(f"\n=== {query!r}")
         hits = store.knn(emb.embed_query(query), k=args.k)
-        print(f"vector top-5:")
+        print("vector top-5:")
         for hit in hits[:5]:
             print(f"  {hit.similarity:.3f}  {hit.title[:70]}")
 
@@ -104,7 +104,7 @@ def main():
         for score, hit in scored[:5]:
             print(f"  {score:.3f}  {hit.title[:70]}")
 
-        def rank_of(seq):
+        def rank_of(seq, marker=marker):
             for i, item in enumerate(seq, 1):
                 title = item.title if hasattr(item, "title") else item[1].title
                 chunk = item.chunk_text if hasattr(item, "chunk_text") else item[1].chunk_text

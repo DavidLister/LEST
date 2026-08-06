@@ -90,6 +90,10 @@ def index(
         typer.Option(help="HH:MM wall-clock budget: start no new file after this "
                           "time (nightly runs; progress is kept, next run resumes)."),
     ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Stop after this many files indexed (smoke tests / batches)."),
+    ] = None,
     embedder: Annotated[
         str | None, typer.Option(hidden=True, help="Embedding backend (default: ollama).")
     ] = None,
@@ -108,6 +112,7 @@ def index(
         embedder_name=embedder,
         db_base=db,
         stop_at=_parse_stop_at(stop_at),
+        limit=limit,
     )
     logging.info(
         "done: %d documents, %d files indexed (%d LLM-fallback), %d unchanged, "
