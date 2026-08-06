@@ -80,9 +80,10 @@ def main():
     if e3:
         md.append("\n## E3 — Multimodal (text + page images)\n")
         md.append(table(
-            ["paper", "pages sent", "s", "anchor hit", "boundary F1 vs P2",
+            ["paper", "arm", "pages sent", "s", "anchor hit", "boundary F1 vs P2",
              "figs described", "fig labels in text"],
-            [[papers[r["paper"]]["title"][:40], r.get("n_pages_sent"),
+            [[papers[r["paper"]]["title"][:40], r.get("variant", "E3"),
+              r.get("n_pages_sent"),
               r.get("seconds"), round(r.get("anchor_hit_rate", 0), 2),
               round(r.get("vs_p2_boundary_f1", 0), 2),
               r.get("n_figures_described"), r.get("fig_labels_in_text")]

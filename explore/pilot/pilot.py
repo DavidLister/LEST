@@ -281,6 +281,16 @@ shows — axes, quantities, trends, and what a reader should take from it.
 PAPER TEXT:""",
 )
 
+GRANULARITY_FIX = """
+CRITICAL granularity rule: one idea spans one to several paragraphs. A typical
+page contains 2-4 ideas; never emit more than 5 ideas per page. For long
+papers, prefer coarser ideas — a complete derivation, experiment, or
+subsection is ONE idea. Total ideas for the whole paper must stay under 80.
+"""
+
+P2B = P2.replace("Rules for first_words:", GRANULARITY_FIX + "\nRules for first_words:")
+P2MB = P2M.replace("Rules for first_words:", GRANULARITY_FIX + "\nRules for first_words:")
+
 REWRITE_PROMPT = """Rewrite this scientific paper as JSON chunks. Copy the text
 VERBATIM — do not change, drop, or add a single word — but split it so that
 each chunk contains exactly one sequential idea (one self-contained point,
@@ -630,8 +640,61 @@ def stage_e6(done):
                tags=(parsed or {}).get("tags", []), **timing)
 
 
+def stage_e1b(done):
+    """E1 rerun: granularity-disciplined prompt + 16k output budget."""
+    for paper in papers():
+        ckpt = f"e1b/{paper['key']}"
+        if ckpt in done:
+            continue
+        text = paper_text(paper["path"])
+        parsed, timing = llm_call(P2B.format(text=text), OUTLINE_SCHEMA,
+                                  num_predict=16384)
+        fields = {"stage": "e1", "paper": paper["key"], "variant": "P2b",
+                  "valid_json": parsed is not None, **timing}
+        if parsed:
+            anchors = [i["first_words"] for s in parsed.get("sections", [])
+                       for i in s.get("ideas", [])]
+            m = anchor_metrics(anchors, text)
+            fields.update(m)
+            fields["n_sections"] = len(parsed.get("sections", []))
+            fields["ideas_per_page"] = round(len(anchors) / paper["pages"], 2)
+            fields["outline"] = parsed
+        record(ckpt, **fields)
+
+
+def stage_e3b(done):
+    """E3 rerun with the granularity fix and 16k output budget."""
+    p2b = {r["paper"]: r for r in load_results("e1") if r["variant"] == "P2b"}
+    for paper in papers():
+        ckpt = f"e3b/{paper['key']}"
+        if ckpt in done:
+            continue
+        text = paper_text(paper["path"])
+        images = render_pages(paper["path"])
+        parsed, timing = llm_call(P2MB.format(text=text), OUTLINE_FIGURES_SCHEMA,
+                                  images=images, num_predict=16384)
+        fig_labels = len({m.group(1) for m in
+                          re.finditer(r"\b(?:Figure|Fig\.?)\s*(\d+)", text)})
+        fields = {"stage": "e3", "paper": paper["key"], "variant": "E3b",
+                  "n_pages_sent": len(images),
+                  "valid_json": parsed is not None,
+                  "fig_labels_in_text": fig_labels, **timing}
+        if parsed:
+            anchors = [i["first_words"] for s in parsed.get("sections", [])
+                       for i in s.get("ideas", [])]
+            m = anchor_metrics(anchors, text)
+            fields["anchor_hit_rate"] = m["anchor_hit_rate"]
+            fields["n_figures_described"] = len(parsed.get("figures", []))
+            fields["figures"] = parsed.get("figures", [])
+            ref = p2b.get(paper["key"], {})
+            fields.update({f"vs_p2_{k}": v for k, v in
+                           agreement(m["positions"], ref.get("positions", [])).items()})
+        record(ckpt, **fields)
+
+
 STAGES = {"select": stage_select, "e1": stage_e1, "e2": stage_e2,
-          "e3": stage_e3, "e4": stage_e4, "e6": stage_e6}
+          "e3": stage_e3, "e4": stage_e4, "e6": stage_e6,
+          "e1b": stage_e1b, "e3b": stage_e3b}
 
 
 def main():
