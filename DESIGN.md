@@ -23,15 +23,17 @@ index overnight via cron, query from a shell or a rofi wrapper.
 
 - No web UI, no daemon, no HTTP API.
 - No cross-directory search (each indexed directory is independent).
-- No hybrid lexical (BM25) search — embedding-only for the MVP.
-- No OCR; PDFs without a text layer are skipped (and reported).
 
 ## CLI
 
 ```
-lest index <dir> [--model NAME] [--chunker NAME] [--verbose]
-lest search <dir> <query> [-n N] [--agg STRATEGY] [--json]
+lest index  <dir> [--model NAME] [--chunker NAME] [--gpu-mode both|a2000]
+                  [--stop-at HH:MM] [--limit N] [--verbose]
+lest search <dir> <query> [-n N] [--agg STRATEGY] [--tag T] [--author A]
+                  [--type T] [--smart] [--no-hybrid] [--no-dedup] [--json]
 lest status <dir>          # what's indexed, with which model/chunker, counts
+lest ocr    <dir>          # OCR the index's no-text PDFs into sidecars
+lest catalog list|review   # vocabularies, usage counts, merge-proposal queue
 ```
 
 - `lest index <dir>` — walk/sync the directory into its database.
@@ -77,12 +79,15 @@ bits:
 | Variable          | Meaning                          | Default                  |
 |-------------------|----------------------------------|--------------------------|
 | `OLLAMA_HOST`     | Ollama server for embeddings     | `http://localhost:11434` |
-| `LEST_DATA_DIR`   | where databases live             | `./data` (repo checkout) |
+| `LEST_DATA_DIR`   | where databases + catalog live   | `./data` (repo checkout) |
+| `LEST_GPU_MODE`   | `both` (gemma on `:11435`) or `a2000` (all on `:11434`) | `both` |
+| `LEST_LLM_HOST`   | explicit generation host (overrides mode) | per gpu-mode  |
+| `LEST_LLM_MODEL`  | generation model                 | `gemma4:12B`             |
 
 Per-database facts (model, dimension, chunker used) live in the database
-itself, not in config. A future LLM chunker gets its own host variable
-(`LEST_CHUNKER_HOST`) so chunking and embedding can run on different
-GPUs/servers (e.g. ROCm instance on one card, CUDA on another).
+itself, not in config. GPU-mode selection is deliberately manual (a flag /
+env var, no auto-detection): a future scheduler service decides when both
+GPUs may be used and passes the mode in.
 
 ## Architecture
 
@@ -164,13 +169,17 @@ the DB (a DB has exactly one chunker, like one model).
   block over a maximum (~2000 chars) at sentence boundaries. Handles the
   ragged paragraphing that PDF extraction produces while keeping chunks
   roughly semantically coherent.
-- **`llm` (planned, not in MVP):** send the document text to a local chat
-  model (e.g. gemma via Ollama) that returns logical section boundaries,
-  identified by echoing the first words of each section (LLMs can't be
-  trusted with byte offsets); boundaries are located by string search, and
-  anything that fails to validate falls back to `paragraph`. Runs on a
-  separate Ollama host so a second GPU can chunk paper N+1 while the first
-  embeds paper N.
+- **`llm` (default since v2):** gemma4 outlines the document (sections +
+  ideas identified by echoing their first words — LLMs can't be trusted with
+  byte offsets); validated anchors become *candidate* cut points, merged
+  mechanically into the paragraph envelope, prefixed with document title and
+  section context. Long documents are outlined in ~120k-char parts. A failed
+  outline falls back to `paragraph` per file; a failed LLM pass marks the
+  file `llm_pending` for retry next run. Indexing additionally makes an
+  image-only figure-description call per ~8 pages and a four-view reflection
+  call (notable / main_ideas / methods / why_cite); those become `figure` /
+  `view` chunks beside the `body` chunks. Scanned PDFs recovered via
+  `lest ocr` sidecars (`data/ocr/`, content-hash keyed; originals untouched).
 
 ### Embedding
 
@@ -278,6 +287,33 @@ on real queries.
 - `ruff` for lint + format; CI (GitHub Actions) runs ruff + pytest via the
   flake.
 
+## v2 additions (2026-08-06)
+
+- **Schema v2** — `chunks.kind` (`body`/`figure`/`view`), an FTS5 mirror of
+  chunk text (trigger-synced), `doc_tags`/`doc_authors`/`documents.doc_type`.
+  v1 databases stay readable untouched and migrate additively only when
+  opened for indexing. `--db DIR` overrides the DB location for A/B between
+  the paragraph baseline and the LLM index — temporary, tagged for removal
+  together with the v1 read-compat.
+- **Entity catalog** (`<data dir>/catalog.db`, shared across DB variants) —
+  tags, authors, and doc types as adaptive vocabularies with aliases.
+  Tags/types resolve by exact/alias match, then embedding nearest-neighbour
+  (auto-map at ≥0.97 — spelling variants only, calibrated on the pilot's
+  2200-tag dump), then gemma adjudication in the 0.80–0.97 gray zone, else a
+  new entity is coined. Authors resolve by folded surname + initials
+  compatibility; near-miss spellings stay distinct and enter a **merge
+  queue** (`lest catalog review`) — merges are never applied autonomously.
+  Doc types are gemma-defined from content (Zotero's itemType is only a
+  hint); generic labels (misc/other/…) are denylisted with a forced re-ask.
+- **Hybrid retrieval** — BM25 (FTS5) fused with vector search by reciprocal
+  rank; `--tag/--author/--type` hard filters resolve alias-aware through the
+  catalog; duplicate library entries collapse by normalized title+year.
+- **Smart search** (`--smart`) — gemma parses the query into weighted facets
+  (tags/authors/types/years); a document failing a facet of weight *w* keeps
+  `score × (1-w)` (so 1.0 is a hard filter, less is a nudge); the
+  facet-stripped semantic query drives retrieval; a listwise gemma pass
+  reranks the top 20. Fast vector-only search stays the default.
+
 ## Milestones
 
 1. **Skeleton** — flake, pyproject, package layout, CLI stubs, CI green.
@@ -286,5 +322,8 @@ on real queries.
    PDFs.
 3. **Zotero source** — auto-detection, metadata, multi-attachment documents.
 4. **Ranking menu + `--json` + `status`** — the full experimentation surface.
-5. **Later** — LLM chunker, query-prefix tuning, rofi wrapper script in
-   `contrib/`, hybrid BM25, cross-directory search.
+5. **v2 (done)** — LLM chunker as default, entity catalog, hybrid BM25,
+   OCR sidecars, smart search.
+6. **Later** — rofi wrapper script in `contrib/`, cross-directory search,
+   dedicated reranker model (blocked on a working GGUF), scheduler service
+   for GPU-mode selection.
