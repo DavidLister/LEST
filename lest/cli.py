@@ -27,6 +27,8 @@ def _setup_logging(verbose: bool) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(levelname)s %(message)s",
     )
+    for noisy in ("httpx", "httpcore"):  # HTTP client internals drown out -v output
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 @app.command()
