@@ -62,14 +62,21 @@ class LlmChunker:
 
     def _outline_sections(self, norm_text: str) -> list[dict] | None:
         """Outline the text (in parts when long); returns section dicts with
-        located anchor positions, or None when every part failed."""
+        located anchor positions, or None when every part failed. Parts beyond
+        MAX_PARTS are indexed without an outline (mechanical merge only) to
+        bound LLM cost on books."""
         parts = self._split_parts(norm_text)
         sections, any_ok, offset = [], False, 0
-        for part in parts:
-            outline = self.client.call(
-                OUTLINE_PROMPT.format(text=part), OUTLINE_SCHEMA,
-                num_predict=OUTLINE_BUDGET,
-            )
+        for part_index, part in enumerate(parts):
+            outline = None
+            if part_index < MAX_PARTS:
+                outline = self.client.call(
+                    OUTLINE_PROMPT.format(text=part), OUTLINE_SCHEMA,
+                    num_predict=OUTLINE_BUDGET,
+                )
+            elif part_index == MAX_PARTS:
+                log.info("outline budget reached; remaining %d part(s) merge "
+                         "mechanically", len(parts) - MAX_PARTS)
             if outline:
                 any_ok = True
                 for section in outline.get("sections", []):
@@ -92,7 +99,7 @@ class LlmChunker:
             return [norm_text]
         parts = []
         start = 0
-        while start < len(norm_text) and len(parts) < MAX_PARTS:
+        while start < len(norm_text):
             end = min(start + PART_CHARS, len(norm_text))
             if end < len(norm_text):  # cut at a sentence-ish boundary
                 dot = norm_text.rfind(". ", start + PART_CHARS // 2, end)
@@ -100,8 +107,6 @@ class LlmChunker:
                     end = dot + 1
             parts.append(norm_text[start:end].strip())
             start = end
-        if start < len(norm_text):  # tail beyond MAX_PARTS still gets indexed
-            parts.append(norm_text[start:].strip())
         return [p for p in parts if p]
 
     # -- cutting ------------------------------------------------------------

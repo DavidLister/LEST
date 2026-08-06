@@ -237,7 +237,9 @@ def _process_file(
         chunks = [("body", c) for c in chunker.chunk(text, title=title)]
         if not chunks:
             return "no_text", [], {}
-        if attachment.content_type == "application/pdf":
+        is_pdf = (attachment.content_type == "application/pdf"
+                  or attachment.path.suffix.lower() == ".pdf")
+        if is_pdf:
             chunks += enricher.figure_chunks(attachment.path, title)
         view_chunks, views = enricher.view_chunks(text, title)
         chunks += view_chunks
