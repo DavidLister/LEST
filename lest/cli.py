@@ -209,6 +209,29 @@ def search(
 
 
 @app.command()
+def live(
+    directory: Annotated[Path, typer.Argument(help="Previously indexed directory.")],
+    n: Annotated[int, typer.Option("-n", "--num-results", help="Number of results.")] = 10,
+    agg: Annotated[str, typer.Option(help="Chunk-to-document aggregation.")] = "max",
+    db: Annotated[Path | None, typer.Option(help=DB_HELP)] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="JSON-lines output.")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """As-you-type search: read query lines from stdin, print a result block
+    (terminated by a blank line) per query.
+
+    Stays warm between queries (~0.5 s per search vs seconds of process
+    startup). When input arrives faster than searches complete, stale queries
+    are skipped and only the newest is answered — pipe a debounced text field
+    into it (rofi/fzf wrapper).
+    """
+    _setup_logging(verbose)
+    from .live import live_loop
+
+    live_loop(directory, n=n, agg_spec=agg, db_base=db, json_output=json_output)
+
+
+@app.command()
 def status(
     directory: Annotated[Path, typer.Argument(help="Previously indexed directory.")],
     db: Annotated[Path | None, typer.Option(help=DB_HELP)] = None,
