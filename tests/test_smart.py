@@ -103,16 +103,31 @@ def test_parse_failure_degrades_to_plain(data_dir):
     assert parsed.facets == []
 
 
-def test_rerank_reorders_and_survives_garbage():
+def test_rerank_fuses_and_survives_garbage():
     results = [result(title=f"doc{i}", score=1.0 - i / 10) for i in range(5)]
     fake = FakeClient([{"ranking": [3, 0, 99, 3, 1]}])  # dupe + out-of-range
     reranked = rerank(fake, "q", results)
-    assert [r.title for r in reranked] == ["doc3", "doc0", "doc1", "doc2", "doc4"]
+    # RRF blend of llm order [3,0,1,2,4] with retrieval order [0,1,2,3,4]:
+    # doc0 (llm#2, retr#1) edges out doc3 (llm#1, retr#4)
+    assert [r.title for r in reranked] == ["doc0", "doc3", "doc1", "doc2", "doc4"]
+    # scores are the sort key: strictly descending
+    scores = [r.score for r in reranked]
+    assert scores == sorted(scores, reverse=True)
 
     # failed call keeps original order
+    results = [result(title=f"doc{i}", score=1.0 - i / 10) for i in range(5)]
     assert [r.title for r in rerank(FakeClient([None]), "q", results)] == [
         f"doc{i}" for i in range(5)
     ]
 
     # single result: no call needed
     assert rerank(FakeClient([]), "q", results[:1]) == results[:1]
+
+
+def test_rerank_tail_stays_below_head():
+    results = [result(title=f"doc{i}", score=1.0 - i / 100) for i in range(25)]
+    fake = FakeClient([{"ranking": list(range(19, -1, -1))}])  # llm reverses head
+    reranked = rerank(fake, "q", results)
+    scores = [r.score for r in reranked]
+    assert scores == sorted(scores, reverse=True)
+    assert [r.title for r in reranked[20:]] == [f"doc{i}" for i in range(20, 25)]

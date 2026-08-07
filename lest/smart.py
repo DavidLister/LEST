@@ -133,9 +133,14 @@ def facet_multiplier(result, parsed: ParsedQuery) -> float:
     return multiplier
 
 
+RERANK_RRF_K = 60
+
+
 def rerank(client: LlmClient, query: str, results: list) -> list:
-    """Listwise gemma rerank of the top results; returns the reordered list.
-    Failure leaves the original order untouched."""
+    """Listwise gemma rerank of the top results, fused with the retrieval
+    order by reciprocal rank: the LLM's judgment nudges rather than dictates,
+    and the rewritten scores ARE the final sort key (so output stays
+    monotonic). Failure leaves the original order untouched."""
     head, tail = results[:RERANK_TOP], results[RERANK_TOP:]
     if len(head) < 2:
         return results
@@ -156,4 +161,15 @@ def rerank(client: LlmClient, query: str, results: list) -> list:
     seen = set()
     order = [i for i in ranking if not (i in seen or seen.add(i))]
     order += [i for i in range(len(head)) if i not in seen]
-    return [head[i] for i in order] + tail
+
+    llm_position = {index: position for position, index in enumerate(order)}
+    for retrieval_position, result in enumerate(head):
+        result.score = 1.0 / (RERANK_RRF_K + llm_position[retrieval_position]) + \
+            1.0 / (RERANK_RRF_K + retrieval_position)
+    head.sort(key=lambda r: r.score, reverse=True)
+    # tail results never reached the reranker: keep their order, but rescale
+    # below the head so the score column stays monotonic
+    floor = head[-1].score
+    for position, result in enumerate(tail):
+        result.score = floor * (1.0 - (position + 1) / (len(tail) + 1))
+    return head + tail
